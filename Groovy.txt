@@ -1,0 +1,189 @@
+JENKINS PIPELINE SCRIPTING(GROOVY)
+
+Pipeline= Pipeline is a series of events that are connected together to make quick sofware release
+
+-->To create pipeline we can do it by plugins method but today we are using groovy method
+-->New item-->Pipeline=observe the difference between freestyle and pipeline
+
+-->Jenkins pipeline-->to build pipeline we have 1) Pipeline Plugins 2) Using Groovy Script
+-->when we integrate multiple job together then a pipeline is formed-->to integrate build and test we used plugins but we can do this by Groovy Script-->But why to go for groovy script when we can do it by plugins
+-->For example if the number of jobs to be build is more then doing it with plugin method is really difficult to integrate into a pipeline and choosing freestyle project method is not suitable to do this because complex activities cannot fit in freestyle project whereas pipeline can. When it comes to Groovy script we prepare only one job which has stages to divide jobs and tasks-->Groovy script is easy to understand and write
+
+-->In plugin method we have to do the process by jenkins UI only -->In Groovy we can do scripting in  jenkins UI and in textfile we wrote total script and we push this textfile to github and we integrate github with jenkins but the probelm is for first time we do build the job by groovy script we have to do it only by jenkins UI-->But once if we integrate our github with jenkins we no need to do changes in jenkins UI and can do it locally or on github and push it
+-->STAGE-1=BUILD --->STAGE-2=TEST ---->STAGE-3=QA --->STAGE-4=DEPLOY
+
+--> For example we have 4 jobs and our 3rd job is giving some issue and we want to skip 3rd job and build 4th job but its not possible in plugin method but possible in Groovy script method
+--> IF something is wrong in 4th job then we need to run all the jobs from begining but in Groovy script we can restart the job which has some problem
+
+->Does Groovy script does n't require plugins. It requires plugins but suite plugins are already there when we build with Groovy script so 80% of the time we don't need to install plugins.
+-->We can add Loops/conditions in Groovy script like jenkins job will only run when the ram is 4gb
+-->Load distribution is possible in Groovy script but not in plugins method. Like in Jenkins we have Master and agents we tell that stage-1 to go to agent1, stage-2 to agent2 and so on
+
+-->Two methods to write Groovy scripts= 1)Scripted Pipeline  2) Declarative Pipeline
+-->Scripted Pipeline starts with node{}=between flowerbraces we write our script
+-->Declarative pipeline starts with pipeline{}
+pipeline{
+                 agent any------------------->stage will go to any agent which has low load
+                 stages{
+                              stage("build"){
+                              step{
+                                    echo"Welcome to Build Stage"
+                                       }
+                                   }
+                             stage("Test"){
+                             step{
+                             echo "Welcome to Test stage"
+                                          }
+                                    }
+                              }
+}
+
+----->Mostly we use Declarative pipelines over scripted pipelines because it offers more options Like to restart from a particular stage which is available only in declarative pipeline script
+----->skipping a stage option is available only in decalrative pipeline
+----->To write our script in our local system later by integrating github with jenkins is only available in declarative pipeline script
+
+pipeline {
+ 
+         agent any===========>pipeline script can be executed on jenkins master or any jenkins agent
+         tools {
+                    maven 'Maven3' ============>This Maven3 is given in jenkins configuration
+         stages {
+        
+                stage('Checkout') {----------->go to pipeline syntax in jenkins-->-->Snippet Generator-->scroll down Sample step select "checkout: check out from version control"-->Repository URL=c/p-->credentials-->select git                                                                              credentials-->generate Pipeline script-->c/p in pipeline script
+                           steps{
+                          <C/P CHECKOUT SCRIPT FROM SNIPPET GENERATOR>
+                           }                 
+                                                    }           
+               stage('Build') {
+                        steps{
+                                sh 'mvn clean install -f MyWebApp/pom.xml'       }
+
+             stage ('Code Quality')
+                       steps{
+                                withSonarQubeEnv('SonarQube') {      ==================>'SonarQube' is given in jenkins configuration
+                               sh 'mvn -f MyWebApp/pom.xml sonar:sonar'
+
+}
+}
+           stage('Nexus Upload') {
+                       steps {
+                              <GO TO PIPELINE SYNTAX-->SCROLL DOWN SAMPLE STEPS->select 'nexusAritfactUploader: Nexus Artifact Uploader'->Nexus Version=choose from nexux tab->Protocol=HTTP->Nexus URl=c/p from nexus                                   without http://->Credentials=select nexus credentials->Groupid=visit pom.xml file=c/p groupId->Version=c/p(1.0-SNAPSHOT) from pom.xml->Repository=since version is snapshot repository=
+                                  maven-snapshots->Artifact ID=c/p from pom.xml->Type=war(c/p from pom.xml)->File=This is the place where jenkins is keeping the files=MyWebApp/target/MyWebApp-->Generate=c/p this in                                                     pipeline script>
+}
+}
+
+           stage('DEV Deploy') {
+                      steps {
+                           <GO TO PIPELINE SYNTAX-->SCROLL->select 'Deploy war/ear to a container' if not present install plugin->WAR/EAR files=select default ->Add container=select tomcat 10.x/version which we have-> Tomcat                                URL=c/p from tomcat page GUI tab->Generate=c/p in this place>
+}
+}
+
+         stage('Slack Notify') {
+                     steps {
+                          <GO TO PIPELINE SYNTAX->SCROLL->select'Slacksend..'->Channel=install plugin and integrate it with jenkins ->Message= Dev Deployment was successful->Generate=c/p here>->once do buildnow and go to                              tomcat page <ipaddress>/8081/MyWebApp/->go to nexus and check->nexux->Browse->maven-snapshots=we can see it, we also get notification in nexus that ' Dev Deployment was successful'
+}
+}
+        stage('DEV approval for QA deployment') {
+                     steps { ======>next lines c/p from coach GUI
+                            echo "Taking approval from DEV Manager for QA Deployment"
+                            timeout(time: 7, unit: 'DAYS') {
+                            input message: 'Do you want to deploy?', submitter: 'admin'-------------->submitter:here we mention jenkins id of person who approves
+}
+}
+        stage('QA Deploy') {
+                     steps {
+                             <GO TO PIPELINE SYNTAX->SCROLL->select 'deploy:Deploy war/ear to a container'->WAR/EAR=set default->Credentials and URL=provide tomcat details->Generate->c/p here>
+}
+}
+       stage('Slack Notify-QA') {
+                     steps {
+                            <C/P THE ABOVE SLACK NOTIFY HERE WITH FEW CHANGES LIKE message: 'DEV Deployment waas successful, please start your testing'>
+}
+}
+}
+}
+                      
+-->How to move the script/pipeline code to SCM-->copy total pipeline code-->go to jenkins-->add file-->create new file=Jenkins File-->c/p here-->Commit new file=Created Jenkinsfile-Pipeline as a code->Commit new file ->go back to jenkins pipeline scipt-->change Pipeline script to Pipeline script from SCM-->SCM->Git->URL=c/p the whole url of github where we have Jenkinsfile from top tab->credentials=Git->Script Path=Jenkinsfile ->apply and save-->configure=now we cannot make any changes here because the pipeline code has been  moved to SCM
+
+
+
+squ_56780bb78a092f696aa08b6915178173de598a48
+
+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
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
